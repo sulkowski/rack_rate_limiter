@@ -12,4 +12,10 @@ class TestRakeLimiter < MiniTest::Test
     get '/'
     assert last_response.ok?
   end
+
+  def test_existence_and_value_of_x_rate_limit_in_the_header
+    get '/'
+    assert last_response.header.include?('X-RateLimit-Limit')
+    assert_equal 60, last_response.header['X-RateLimit-Limit']
+  end
 end
