@@ -9,7 +9,7 @@ The Rate Limiter will be implemented as a Rack middleware similarly to GitHub’
 Add this line to your application's Gemfile:
 
 ```ruby
-gem 'rack_rake_limiter', git: 'git://github.com/sulkowski/rack_rate_limiter.git'
+gem 'rack_rate_limiter', git: 'git://github.com/sulkowski/rack_rate_limiter.git'
 ```
 
 In your application add:
