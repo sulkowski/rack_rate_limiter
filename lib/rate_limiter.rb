@@ -14,16 +14,16 @@ module Rack
     def call(env)
       status, headers, response        = @app.call(env)
       headers['X-RateLimit-Limit']     = @rate_limit
-      headers['X-RateLimit-Remaining'] = decrease_remaining_request
+      headers['X-RateLimit-Remaining'] = decrease_remaining_requests
 
       [status, headers, response]
     end
 
     private
 
-    def decrease_remaining_request
-      @rate_limit -= 1 unless @rate_limit.zero?
-      @rate_limit
+    def decrease_remaining_requests
+      @remaining_requests -= 1 unless @remaining_requests.zero?
+      @remaining_requests
     end
   end
 end
