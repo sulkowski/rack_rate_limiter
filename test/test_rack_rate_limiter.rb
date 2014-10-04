@@ -2,7 +2,7 @@ require 'minitest/autorun'
 require 'rack/test'
 require 'rate_limiter'
 
-class TestRakeLimiter < MiniTest::Test
+class TestRateLimiter < MiniTest::Test
   include Rack::Test::Methods
 
   def app
