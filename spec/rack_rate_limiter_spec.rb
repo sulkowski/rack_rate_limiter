@@ -9,7 +9,7 @@ describe Rack::RateLimiter do
     Rack::RateLimiter.new(lambda { |env| [200, {}, ''] }, @rate_limiter_options)
   end
 
-  it 'test_successful_response' do
+  it 'returns a successful response' do
     get '/'
     expect(last_response.ok?).to be_truthy
   end
