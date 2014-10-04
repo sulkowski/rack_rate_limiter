@@ -1,6 +1,8 @@
 require 'rack/rate_limiter/version'
 
 module Rack
+  class TooManyRequests < RangeError; end
+
   class RateLimiter
     DEFAULT_RATE_LIMIT = 60
 
@@ -12,17 +14,20 @@ module Rack
     end
 
     def call(env)
+      decrease_remaining_requests
       status, headers, response        = @app.call(env)
       headers['X-RateLimit-Limit']     = @rate_limit
-      headers['X-RateLimit-Remaining'] = decrease_remaining_requests
-
+      headers['X-RateLimit-Remaining'] = @remaining_requests
       [status, headers, response]
+    rescue TooManyRequests
+      [403, { 'Content-Type' => 'text/plain' }, ['Too many requests']]
     end
 
     private
 
     def decrease_remaining_requests
-      @remaining_requests -= 1 unless @remaining_requests.zero?
+      raise TooManyRequests if @remaining_requests.zero?
+      @remaining_requests -= 1
       @remaining_requests
     end
   end
