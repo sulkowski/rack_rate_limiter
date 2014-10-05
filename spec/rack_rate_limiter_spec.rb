@@ -17,6 +17,7 @@ describe Rack::RateLimiter do
   describe 'X-RateLimit-Limit' do
     describe 'default value of the `X-RateLimit-Limit`' do
       before(:each) { get '/' }
+
       it 'has the `X-RateLimit-Limit` in the header' do
         expect(last_response.header).to include('X-RateLimit-Limit')
       end
@@ -59,6 +60,41 @@ describe Rack::RateLimiter do
       get '/'
       expect(last_response.status).to eq(403)
       expect(last_response.body).to eq('Too many requests')
+    end
+  end
+
+  describe 'X-RateLimit-Reset' do
+    before(:each) do
+      @currenct_time               = Time.now
+      @currenct_time_after_an_hour = @currenct_time + 60*60
+
+      Timecop.freeze(@currenct_time)
+      get '/'
+      Timecop.return
+    end
+
+    after(:each) { Timecop.return }
+
+    it 'has the `X-RateLimit-Reset` in the header' do
+      expect(last_response.header).to include('X-RateLimit-Reset')
+    end
+
+    it 'sets the value of the `X-RateLimit-Reset` to the time of the first request' do
+      expect(last_response.header['X-RateLimit-Reset']).to eq(@currenct_time_after_an_hour.to_i)
+    end
+
+    it 'doesn`t change the `X-RateLimit-Reset` value in succeeding requests' do
+      5.times { get '/' }
+      expect(last_response.header['X-RateLimit-Reset']).to eq(@currenct_time_after_an_hour.to_i)
+    end
+
+    it 'resets the `X-RateLimit-Reset` value after an hour since the first request' do
+      new_current_time               = @currenct_time_after_an_hour + 60
+      new_current_time_after_an_hour = new_current_time + 60*60
+
+      Timecop.freeze(new_current_time)
+      get '/'
+      expect(last_response.header['X-RateLimit-Reset']).to eq(new_current_time_after_an_hour.to_i)
     end
   end
 end
