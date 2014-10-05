@@ -128,13 +128,13 @@ describe Rack::RateLimiter do
     end
   end
 
-  describe  'custom user detection' do
+  describe 'custom user detection' do
     describe 'with an additional block' do
       let(:rake_limiter_customization_block) { Proc.new { |env| Rack::Request.new(env).params['API_TOKEN'] } }
 
       it 'identifies users by the token' do
-        get '/', {'API_TOKEN' => 'ighVrvNmkLvWmjlFUZHzYQ'}, 'REMOTE_ADDR' => '172.16.1.1'
-        get '/', {'API_TOKEN' => 'ighVrvNmkLvWmjlFUZHzYQ'}, 'REMOTE_ADDR' => '172.16.1.2'
+        get '/', { 'API_TOKEN' => 'ighVrvNmkLvWmjlFUZHzYQ' }, 'REMOTE_ADDR' => '172.16.1.1'
+        get '/', { 'API_TOKEN' => 'ighVrvNmkLvWmjlFUZHzYQ' }, 'REMOTE_ADDR' => '172.16.1.2'
         expect(last_response.header['X-RateLimit-Remaining']).to eq(58)
       end
 
@@ -154,6 +154,24 @@ describe Rack::RateLimiter do
         5.times {get '/', {}, 'REMOTE_ADDR' => '172.16.1.2' }
         expect(last_response.header['X-RateLimit-Remaining']).to eq(55)
       end
+    end
+  end
+
+  describe 'custom memory storage' do
+    let(:external_memory) { ExternalMemory.new }
+    let(:rate_limiter_options) { { limit: 30, memory: external_memory } }
+    let(:rake_limiter_customization_block) { Proc.new { |env| Rack::Request.new(env).params['API_TOKEN'] } }
+
+    it 'should store all data in the external memory' do
+      current_time = Time.now
+      Timecop.freeze(current_time)
+      get '/', { 'API_TOKEN' => 'ighVrvNmkLvWmjlFUZHzYQ' }
+      Timecop.return
+
+      expect(external_memory.get('rate_limit')).to eq(30)
+      expect(external_memory.get('users')['ighVrvNmkLvWmjlFUZHzYQ'][:remaining_requests]).to eq(29)
+      expect(external_memory.get('users')['ighVrvNmkLvWmjlFUZHzYQ'][:reset_time]).to eq(time_after_an_hour(current_time).to_i)
+      expect(external_memory.get('customization_block')).to eq(rake_limiter_customization_block)
     end
   end
 end
