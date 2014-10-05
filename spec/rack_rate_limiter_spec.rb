@@ -1,12 +1,10 @@
 require 'spec_helper'
 
 describe Rack::RateLimiter do
-  before(:each) do
-    @rate_limiter_options = {}
-  end
+  let(:rate_limiter_options) { {} }
 
   def app
-    Rack::RateLimiter.new(lambda { |env| [200, {}, ''] }, @rate_limiter_options)
+    Rack::RateLimiter.new(lambda { |env| [200, {}, ''] }, rate_limiter_options)
   end
 
   it 'returns a successful response' do
@@ -28,8 +26,9 @@ describe Rack::RateLimiter do
     end
 
     describe 'custom value of `X-RateLimit-Limit`' do
+      let(:rate_limiter_options) { { limit: 40 } }
+
       before(:each) do
-        @rate_limiter_options = { limit: 40 }
         get '/'
       end
 
@@ -64,11 +63,11 @@ describe Rack::RateLimiter do
   end
 
   describe 'X-RateLimit-Reset' do
-    before(:each) do
-      @currenct_time               = Time.now
-      @currenct_time_after_an_hour = @currenct_time + 60*60
+    let(:current_time) { Time.now }
+    let(:current_time_after_an_hour) { current_time + 60*60 }
 
-      Timecop.freeze(@currenct_time)
+    before(:each) do
+      Timecop.freeze(current_time)
       get '/'
       Timecop.return
     end
@@ -80,16 +79,16 @@ describe Rack::RateLimiter do
     end
 
     it 'sets the value of the `X-RateLimit-Reset` to the time of the first request' do
-      expect(last_response.header['X-RateLimit-Reset']).to eq(@currenct_time_after_an_hour.to_i)
+      expect(last_response.header['X-RateLimit-Reset']).to eq(current_time_after_an_hour.to_i)
     end
 
     it 'doesn`t change the `X-RateLimit-Reset` value in succeeding requests' do
       5.times { get '/' }
-      expect(last_response.header['X-RateLimit-Reset']).to eq(@currenct_time_after_an_hour.to_i)
+      expect(last_response.header['X-RateLimit-Reset']).to eq(current_time_after_an_hour.to_i)
     end
 
     it 'resets the `X-RateLimit-Reset` value after an hour since the first request' do
-      new_current_time               = @currenct_time_after_an_hour + 60
+      new_current_time               = current_time_after_an_hour + 60
       new_current_time_after_an_hour = new_current_time + 60*60
 
       Timecop.freeze(new_current_time)
