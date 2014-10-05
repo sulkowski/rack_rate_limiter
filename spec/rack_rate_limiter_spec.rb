@@ -29,11 +29,8 @@ describe Rack::RateLimiter do
     describe 'custom value of `X-RateLimit-Limit`' do
       let(:rate_limiter_options) { { limit: 40 } }
 
-      before(:each) do
-        get '/'
-      end
-
       it 'has a custom value of the `X-RateLimit-Limit`' do
+        get '/'
         expect(last_response.header['X-RateLimit-Limit']).to eq(40)
       end
     end
@@ -72,8 +69,6 @@ describe Rack::RateLimiter do
       Timecop.return
     end
 
-    after(:each) { Timecop.return }
-
     it 'has the `X-RateLimit-Reset` in the header' do
       expect(last_response.header).to include('X-RateLimit-Reset')
     end
@@ -92,6 +87,7 @@ describe Rack::RateLimiter do
 
       Timecop.freeze(new_current_time)
       get '/'
+      Timecop.return
       expect(last_response.header['X-RateLimit-Reset']).to eq(time_after_an_hour(new_current_time).to_i)
     end
   end
@@ -112,7 +108,7 @@ describe Rack::RateLimiter do
 
     describe 'X-RateLimit-Reset' do
       let(:current_time_user_1) { Time.now }
-      let(:current_time_user_2) { Time.now + 15*60 }
+      let(:current_time_user_2) { Time.now + 15 * 60 }
 
       after(:each) { Timecop.return }
 
@@ -138,7 +134,7 @@ describe Rack::RateLimiter do
         expect(last_response.header['X-RateLimit-Remaining']).to eq(58)
       end
 
-      it 'does not include X-RateLimit-Limit, X-RateLimit-Remaining and X-RateLimit-Reset if the block return nil' do
+      it 'does not include X-RateLimit-Limit, X-RateLimit-Remaining and X-RateLimit-Reset if the block returns nil' do
         get '/'
         expect(last_response.header).not_to include('X-RateLimit-Limit')
         expect(last_response.header).not_to include('X-RateLimit-Remaining')
@@ -167,7 +163,6 @@ describe Rack::RateLimiter do
       Timecop.freeze(current_time)
       get '/', { 'API_TOKEN' => 'ighVrvNmkLvWmjlFUZHzYQ' }
       Timecop.return
-
       expect(external_memory.get('rate_limit')).to eq(30)
       expect(external_memory.get('users')['ighVrvNmkLvWmjlFUZHzYQ'][:remaining_requests]).to eq(29)
       expect(external_memory.get('users')['ighVrvNmkLvWmjlFUZHzYQ'][:reset_time]).to eq(time_after_an_hour(current_time).to_i)

@@ -7,7 +7,7 @@ RSpec.configure do |config|
 end
 
 def time_after_an_hour(time)
-  time + 60*60
+  time + 60 * 60
 end
 
 class ExternalMemory
