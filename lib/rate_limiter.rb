@@ -18,7 +18,7 @@ module Rack
       status, headers, response        = @app.call(env)
       headers['X-RateLimit-Limit']     = @rate_limit
       headers['X-RateLimit-Remaining'] = @remaining_requests
-      headers['X-RateLimit-Reset']     = update_rate_limit_reset
+      headers['X-RateLimit-Reset']     = update_reset_time
       [status, headers, response]
     rescue TooManyRequests
       [403, { 'Content-Type' => 'text/plain' }, ['Too many requests']]
@@ -31,7 +31,7 @@ module Rack
       @remaining_requests -= 1
     end
 
-    def update_rate_limit_reset
+    def update_reset_time
       @reset_time = Time.now.to_i + 60*60 if !@reset_time || @reset_time <= Time.now.to_i
       @reset_time
     end
