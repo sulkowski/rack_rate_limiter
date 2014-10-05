@@ -162,7 +162,7 @@ describe Rack::RateLimiter do
     let(:rate_limiter_options) { { limit: 30, memory: external_memory } }
     let(:rake_limiter_customization_block) { Proc.new { |env| Rack::Request.new(env).params['API_TOKEN'] } }
 
-    it 'should store all data in the external memory' do
+    it 'stores all data in the external memory' do
       current_time = Time.now
       Timecop.freeze(current_time)
       get '/', { 'API_TOKEN' => 'ighVrvNmkLvWmjlFUZHzYQ' }
