@@ -9,11 +9,11 @@ module Rack
 
     def initialize(app, options ={}, &customization_block)
       @app = app
-      @customization_block = customization_block
 
       @rate_limit = options[:limit] || DEFAULT_RATE_LIMIT
       @users      = Hash.new { |hash, key| hash[key] = { remaining_requests: @rate_limit,
                                                          reset_time: time_after_an_hour(Time.now).to_i } }
+      @customization_block = customization_block
     end
 
     def call(env)
