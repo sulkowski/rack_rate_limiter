@@ -151,7 +151,7 @@ describe Rack::RateLimiter do
         2.times { get '/', {}, 'REMOTE_ADDR' => '172.16.1.1' }
         expect(last_response.header['X-RateLimit-Remaining']).to eq(58)
 
-        5.times {get '/', {}, 'REMOTE_ADDR' => '172.16.1.2' }
+        5.times { get '/', {}, 'REMOTE_ADDR' => '172.16.1.2' }
         expect(last_response.header['X-RateLimit-Remaining']).to eq(55)
       end
     end

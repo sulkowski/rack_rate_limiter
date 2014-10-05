@@ -27,7 +27,7 @@ module Rack
       @memory.set('app', app)
       @memory.set('rate_limit', options[:limit] || DEFAULT_RATE_LIMIT)
       @memory.set('users', Hash.new { |hash, key| hash[key] = { remaining_requests: @memory.get('rate_limit'),
-                                                               reset_time: time_after_an_hour(Time.now).to_i } } )
+                                                                reset_time: time_after_an_hour(Time.now).to_i } } )
       @memory.set('customization_block', customization_block)
     end
 
@@ -50,7 +50,7 @@ module Rack
     private
 
     def set_memory(memory)
-      @memory = memory.nil? ? InternalMemory.new  : memory
+      @memory = memory.nil? ? InternalMemory.new : memory
     end
 
     def decrease_remaining_requests(user)
