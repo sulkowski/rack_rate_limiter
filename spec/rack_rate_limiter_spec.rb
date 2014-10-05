@@ -64,7 +64,6 @@ describe Rack::RateLimiter do
 
   describe 'X-RateLimit-Reset' do
     let(:current_time) { Time.now }
-    let(:current_time_after_an_hour) { current_time + 60*60 }
 
     before(:each) do
       Timecop.freeze(current_time)
@@ -79,21 +78,52 @@ describe Rack::RateLimiter do
     end
 
     it 'sets the value of the `X-RateLimit-Reset` to the time of the first request' do
-      expect(last_response.header['X-RateLimit-Reset']).to eq(current_time_after_an_hour.to_i)
+      expect(last_response.header['X-RateLimit-Reset']).to eq(time_after_an_hour(current_time).to_i)
     end
 
     it 'doesn`t change the `X-RateLimit-Reset` value in succeeding requests' do
       5.times { get '/' }
-      expect(last_response.header['X-RateLimit-Reset']).to eq(current_time_after_an_hour.to_i)
+      expect(last_response.header['X-RateLimit-Reset']).to eq(time_after_an_hour(current_time).to_i)
     end
 
     it 'resets the `X-RateLimit-Reset` value after an hour since the first request' do
-      new_current_time               = current_time_after_an_hour + 60
-      new_current_time_after_an_hour = new_current_time + 60*60
+      new_current_time = time_after_an_hour(current_time) + 60
 
       Timecop.freeze(new_current_time)
       get '/'
-      expect(last_response.header['X-RateLimit-Reset']).to eq(new_current_time_after_an_hour.to_i)
+      expect(last_response.header['X-RateLimit-Reset']).to eq(time_after_an_hour(new_current_time).to_i)
+    end
+  end
+
+  describe 'requests from users with different IPs' do
+    let(:ip_user_1) { '172.16.0.1' }
+    let(:ip_user_2) { '172.16.0.2' }
+
+    describe 'X-RateLimit-Remaining' do
+      it 'has different values of the the `X-RateLimit-Remaining` fo each user' do
+        3.times { get '/', {}, 'REMOTE_ADDR' => ip_user_1 }
+        expect(last_response.header['X-RateLimit-Remaining']).to eq(57)
+
+        7.times { get '/', {}, 'REMOTE_ADDR' => ip_user_2 }
+        expect(last_response.header['X-RateLimit-Remaining']).to eq(53)
+      end
+    end
+
+    describe 'X-RateLimit-Reset' do
+      let(:current_time_user_1) { Time.now }
+      let(:current_time_user_2) { Time.now + 15*60 }
+
+      after(:each) { Timecop.return }
+
+      it 'has different values of the `X-RateLimit-Reset` for each user' do
+        Timecop.freeze(current_time_user_1)
+        get '/', {}, 'REMOTE_ADDR' => ip_user_1
+        expect(last_response.header['X-RateLimit-Reset']).to eq(time_after_an_hour(current_time_user_1).to_i)
+
+        Timecop.freeze(current_time_user_2)
+        get '/', {}, 'REMOTE_ADDR' => ip_user_2
+        expect(last_response.header['X-RateLimit-Reset']).to eq(time_after_an_hour(current_time_user_2).to_i)
+      end
     end
   end
 end
