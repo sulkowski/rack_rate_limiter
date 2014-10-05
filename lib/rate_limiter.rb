@@ -1,4 +1,5 @@
 require 'rack/rate_limiter/version'
+require 'rack'
 
 module Rack
   class TooManyRequests < RangeError; end
@@ -6,21 +7,25 @@ module Rack
   class RateLimiter
     DEFAULT_RATE_LIMIT = 60
 
-    def initialize(app, options ={})
+    def initialize(app, options ={}, &customization_block)
       @app = app
+      @customization_block = customization_block
 
       @rate_limit = options[:limit] || DEFAULT_RATE_LIMIT
       @users      = Hash.new { |hash, key| hash[key] = { remaining_requests: @rate_limit,
-                                                         reset_time: Time.now.to_i + 60*60 } }
+                                                         reset_time: time_after_an_hour(Time.now).to_i } }
     end
 
     def call(env)
-      user = update_user_attributes(@users[env['REMOTE_ADDR']])
+      status, headers, response = @app.call(env)
 
-      status, headers, response        = @app.call(env)
-      headers['X-RateLimit-Limit']     = @rate_limit
-      headers['X-RateLimit-Remaining'] = user[:remaining_requests]
-      headers['X-RateLimit-Reset']     = user[:reset_time]
+      if user_id = get_user_id(env)
+        user = update_user_attributes(@users[user_id])
+
+        headers['X-RateLimit-Limit']     = @rate_limit
+        headers['X-RateLimit-Remaining'] = user[:remaining_requests]
+        headers['X-RateLimit-Reset']     = user[:reset_time]
+      end
 
       [status, headers, response]
     rescue TooManyRequests
@@ -37,9 +42,19 @@ module Rack
     end
 
     def update_reset_time(user)
-      user[:reset_time] = Time.now.to_i + 60*60 if user[:reset_time] <= Time.now.to_i
+      user[:reset_time] = time_after_an_hour(Time.now).to_i if user[:reset_time] <= Time.now.to_i
 
       user
+    end
+
+    def get_user_id(env)
+      if @customization_block
+        user_id = @customization_block.call(env)
+      else
+        user_id = env['REMOTE_ADDR']
+      end
+
+      user_id
     end
 
     def update_user_attributes(user)
@@ -47,6 +62,10 @@ module Rack
       decrease_remaining_requests(user)
 
       user
+    end
+
+    def time_after_an_hour(time)
+      Time.now + 60*60
     end
   end
 end
