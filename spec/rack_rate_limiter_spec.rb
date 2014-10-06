@@ -1,7 +1,8 @@
 require 'spec_helper'
 
 describe Rack::RateLimiter do
-  let(:rate_limiter_options) { {} }
+  let(:external_memory) { ExternalMemory.new }
+  let(:rate_limiter_options) { {memory: external_memory } }
   let(:rake_limiter_customization_block) {}
 
   def app
@@ -154,7 +155,6 @@ describe Rack::RateLimiter do
   end
 
   describe 'custom memory storage' do
-    let(:external_memory) { ExternalMemory.new }
     let(:rate_limiter_options) { { limit: 30, memory: external_memory } }
     let(:rake_limiter_customization_block) { Proc.new { |env| Rack::Request.new(env).params['API_TOKEN'] } }
 
