@@ -16,7 +16,8 @@ class ExternalMemory
   end
 
   def get(attribute)
-    @memory[attribute.to_s]
+    data = @memory[attribute.to_s]
+    data ? data.dup : nil
   end
 
   def set(attribute, value)

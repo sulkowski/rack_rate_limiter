@@ -84,7 +84,7 @@ module Rack
     def find_or_create_user(user_id)
       user = @memory.get("user-#{user_id}")
       unless user
-        user = { id: user_id, remaining_requests: @rate_limit, reset_time: time_after_an_hour(Time.now).to_i } unless user
+        user = { id: user_id, remaining_requests: @rate_limit, reset_time: time_after_an_hour(Time.now).to_i }
         @memory.set("user-#{user_id}", user)
       end
 
