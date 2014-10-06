@@ -33,7 +33,7 @@ module Rack
     def call(env)
       status, headers, response = @app.call(env)
 
-      if client_id = evaluate_client_id(env)
+      if client_id = get_client_id(env)
         client = update_client_attributes(find_or_create_client(client_id))
 
         headers['X-RateLimit-Limit']     = @rate_limit
@@ -81,7 +81,7 @@ module Rack
       client[:remaining_requests].zero?
     end
 
-    def evaluate_client_id(env)
+    def get_client_id(env)
       @configuration_block.call(env)
     end
 
