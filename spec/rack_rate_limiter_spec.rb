@@ -2,15 +2,15 @@ require 'spec_helper'
 
 describe Rack::RateLimiter do
   let(:rate_limiter_options) { {} }
-  let(:rake_limiter_customization_block) {}
+  let(:rate_limiter_customization_block) {}
 
   def app
-    Rack::RateLimiter.new(lambda { |env| [200, {}, ''] }, rate_limiter_options, &rake_limiter_customization_block)
+    Rack::RateLimiter.new(lambda { |env| [200, {}, ''] }, rate_limiter_options, &rate_limiter_customization_block)
   end
 
   it 'returns a successful response' do
     get '/'
-    expect(last_response.ok?).to be_truthy
+    expect(last_response).to be_ok
   end
 
   describe 'X-RateLimit-Limit' do
@@ -61,74 +61,64 @@ describe Rack::RateLimiter do
   end
 
   describe 'X-RateLimit-Reset' do
-    let(:current_time) { Time.now }
-
-    before(:each) do
-      Timecop.freeze(current_time)
-      get '/'
-      Timecop.return
-    end
-
     it 'has the `X-RateLimit-Reset` in the header' do
+      get '/'
       expect(last_response.header).to include('X-RateLimit-Reset')
     end
 
     it 'sets the value of the `X-RateLimit-Reset` to the time of the first request' do
-      expect(last_response.header['X-RateLimit-Reset']).to eq(time_after_an_hour(current_time).to_i)
-    end
+      at_time('2:14') { get '/' }
 
-    it 'doesn`t change the `X-RateLimit-Reset` value in succeeding requests' do
-      5.times { get '/' }
-      expect(last_response.header['X-RateLimit-Reset']).to eq(time_after_an_hour(current_time).to_i)
+      at_time '2:33' do
+        3.times { get '/' }
+        expect(last_response.header['X-RateLimit-Reset']).to eq(timestamp_for('3:14'))
+      end
     end
 
     it 'resets the `X-RateLimit-Reset` value after an hour since the first request' do
-      new_current_time = time_after_an_hour(current_time) + 60
+      at_time('3:33') { get '/' }
 
-      Timecop.freeze(new_current_time)
-      get '/'
-      Timecop.return
-      expect(last_response.header['X-RateLimit-Reset']).to eq(time_after_an_hour(new_current_time).to_i)
+      at_time '4:37' do
+        get '/'
+        expect(last_response.header['X-RateLimit-Reset']).to eq(timestamp_for('5:37'))
+      end
     end
   end
 
-  describe 'requests from users with different IPs' do
-    let(:ip_user_1) { '172.16.0.1' }
-    let(:ip_user_2) { '172.16.0.2' }
+  describe 'requests from clients with different IPs' do
+    let(:ip_client_1) { '172.16.0.1' }
+    let(:ip_client_2) { '172.16.0.2' }
 
     describe 'X-RateLimit-Remaining' do
-      it 'has different values of the the `X-RateLimit-Remaining` fo each user' do
-        3.times { get '/', {}, 'REMOTE_ADDR' => ip_user_1 }
+      it 'has different values of the the `X-RateLimit-Remaining` fo each client' do
+        3.times { get '/', {}, 'REMOTE_ADDR' => ip_client_1 }
         expect(last_response.header['X-RateLimit-Remaining']).to eq(57)
 
-        7.times { get '/', {}, 'REMOTE_ADDR' => ip_user_2 }
+        7.times { get '/', {}, 'REMOTE_ADDR' => ip_client_2 }
         expect(last_response.header['X-RateLimit-Remaining']).to eq(53)
       end
     end
 
     describe 'X-RateLimit-Reset' do
-      let(:current_time_user_1) { Time.now }
-      let(:current_time_user_2) { Time.now + 15 * 60 }
+      it 'has different values of the `X-RateLimit-Reset` for each client' do
+        at_time '2:03' do
+          get '/', {}, 'REMOTE_ADDR' => ip_client_1
+          expect(last_response.header['X-RateLimit-Reset']).to eq(timestamp_for('3:03'))
+        end
 
-      after(:each) { Timecop.return }
-
-      it 'has different values of the `X-RateLimit-Reset` for each user' do
-        Timecop.freeze(current_time_user_1)
-        get '/', {}, 'REMOTE_ADDR' => ip_user_1
-        expect(last_response.header['X-RateLimit-Reset']).to eq(time_after_an_hour(current_time_user_1).to_i)
-
-        Timecop.freeze(current_time_user_2)
-        get '/', {}, 'REMOTE_ADDR' => ip_user_2
-        expect(last_response.header['X-RateLimit-Reset']).to eq(time_after_an_hour(current_time_user_2).to_i)
+        at_time '3:19' do
+          get '/', {}, 'REMOTE_ADDR' => ip_client_2
+          expect(last_response.header['X-RateLimit-Reset']).to eq(timestamp_for('4:19'))
+        end
       end
     end
   end
 
-  describe 'custom user detection' do
+  describe 'custom client detection' do
     describe 'with an additional block' do
-      let(:rake_limiter_customization_block) { Proc.new { |env| Rack::Request.new(env).params['API_TOKEN'] } }
+      let(:rate_limiter_customization_block) { Proc.new { |env| Rack::Request.new(env).params['API_TOKEN'] } }
 
-      it 'identifies users by the token' do
+      it 'identifies clients by the token' do
         get '/', { 'API_TOKEN' => 'ighVrvNmkLvWmjlFUZHzYQ' }, 'REMOTE_ADDR' => '172.16.1.1'
         get '/', { 'API_TOKEN' => 'ighVrvNmkLvWmjlFUZHzYQ' }, 'REMOTE_ADDR' => '172.16.1.2'
         expect(last_response.header['X-RateLimit-Remaining']).to eq(58)
@@ -143,7 +133,7 @@ describe Rack::RateLimiter do
     end
 
     describe 'without an additional block' do
-      it 'identifies users by their address IP' do
+      it 'identifies clients by their address IP' do
         2.times { get '/', {}, 'REMOTE_ADDR' => '172.16.1.1' }
         expect(last_response.header['X-RateLimit-Remaining']).to eq(58)
 
@@ -153,19 +143,15 @@ describe Rack::RateLimiter do
     end
   end
 
-  describe 'custom memory storage' do
-    let(:external_memory) { ExternalMemory.new }
-    let(:rate_limiter_options) { { limit: 30, memory: external_memory } }
-    let(:rake_limiter_customization_block) { Proc.new { |env| Rack::Request.new(env).params['API_TOKEN'] } }
+  describe 'custom data storage' do
+    let(:external_memory) { double }
+    let(:rate_limiter_options) { { memory: external_memory } }
 
-    it 'stores all data in the external memory' do
-      current_time = Time.now
-      Timecop.freeze(current_time)
-      get '/', { 'API_TOKEN' => 'ighVrvNmkLvWmjlFUZHzYQ' }
-      Timecop.return
-      expect(external_memory.get("user-ighVrvNmkLvWmjlFUZHzYQ")[:id]).to eq('ighVrvNmkLvWmjlFUZHzYQ')
-      expect(external_memory.get("user-ighVrvNmkLvWmjlFUZHzYQ")[:remaining_requests]).to eq(29)
-      expect(external_memory.get('user-ighVrvNmkLvWmjlFUZHzYQ')[:reset_time]).to eq(time_after_an_hour(current_time).to_i)
+    it 'stores all data in the external data storage' do
+      expect(external_memory).to receive(:get)
+      expect(external_memory).to receive(:set).twice
+
+      get '/'
     end
   end
 end

@@ -5,94 +5,108 @@ module Rack
   class TooManyRequests < RangeError; end
 
   class RateLimiter
-    class InternalMemory
+    class InternalDataStorage
       def initialize
-        @memory = Hash.new
+        @memory = { }
       end
 
-      def get(attribute)
-        @memory[attribute.to_s]
+      def get(key)
+        @memory[key]
       end
 
-      def set(attribute, value)
-        @memory[attribute.to_s] = value
+      def set(key, value)
+        @memory[key] = value
       end
     end
 
     DEFAULT_RATE_LIMIT = 60
+    DEFAULT_CONFIGURATION_BLOCK = Proc.new { |env| env['REMOTE_ADDR'] }
 
-    def initialize(app, options ={}, &customization_block)
-      @memory = set_memory(options[:memory])
+    def initialize(app, options ={}, &configuration_block)
+      @memory = initialize_memory(options[:memory])
 
       @app = app
       @rate_limit = options[:limit] || DEFAULT_RATE_LIMIT
-      @customization_block = customization_block
+      @configuration_block = configuration_block || DEFAULT_CONFIGURATION_BLOCK
     end
 
     def call(env)
       status, headers, response = @app.call(env)
 
-      if user_id = get_user_id(env)
-        user = update_user_attributes(find_or_create_user(user_id))
+      if client_id = evaluate_client_id(env)
+        client = update_client_attributes(find_or_create_client(client_id))
 
         headers['X-RateLimit-Limit']     = @rate_limit
-        headers['X-RateLimit-Remaining'] = user[:remaining_requests]
-        headers['X-RateLimit-Reset']     = user[:reset_time]
+        headers['X-RateLimit-Remaining'] = client[:remaining_requests]
+        headers['X-RateLimit-Reset']     = client[:reset_at]
       end
 
       [status, headers, response]
     rescue TooManyRequests
-      [429, { 'Content-Type' => 'text/plain' }, ['Too many requests']]
+      [429, { 'Content-Type' => 'text/plain' }, 'Too many requests']
     end
 
     private
 
-    def set_memory(memory)
-      @memory = memory.nil? ? InternalMemory.new : memory
+    def initialize_memory(memory)
+      @memory = memory.nil? ? InternalDataStorage.new : memory
     end
 
-    def decrease_remaining_requests(user)
-      raise TooManyRequests if user[:remaining_requests].zero?
-      user[:remaining_requests] -= 1
+    def update_client_attributes(client)
+      update_reset_at(client)
+      decrease_remaining_requests(client)
+      set_client(client)
 
-      user
+      client
     end
 
-    def update_reset_time(user)
-      user[:reset_time] = time_after_an_hour(Time.now).to_i if user[:reset_time] <= Time.now.to_i
+    def update_reset_at(client)
+      client[:reset_at] = timestamp_for(Time.now + 60 * 60) if exceeded_reset_at?(client)
 
-      user
+      client
     end
 
-    def update_user_attributes(user)
-      update_reset_time(user)
-      decrease_remaining_requests(user)
+    def decrease_remaining_requests(client)
+      raise TooManyRequests if remaining_requests?(client)
+      client[:remaining_requests] -= 1
 
-      user
+      client
     end
 
-    def get_user_id(env)
-      if @customization_block
-        user_id = @customization_block.call(env)
-      else
-        user_id = env['REMOTE_ADDR']
+    def exceeded_reset_at?(client)
+      Time.now.to_i > client[:reset_at]
+    end
+
+    def remaining_requests?(client)
+      client[:remaining_requests].zero?
+    end
+
+    def evaluate_client_id(env)
+      @configuration_block.call(env)
+    end
+
+    def find_or_create_client(client_id)
+      unless client = get_client(client_id)
+        client = { id: client_id,
+                   remaining_requests: @rate_limit,
+                   reset_at: timestamp_for(Time.now + 60 * 60)
+                 }
+        set_client(client)
       end
 
-      user_id
+      client
     end
 
-    def find_or_create_user(user_id)
-      user = @memory.get("user-#{user_id}")
-      unless user
-        user = { id: user_id, remaining_requests: @rate_limit, reset_time: time_after_an_hour(Time.now).to_i } unless user
-        @memory.set("user-#{user_id}", user)
-      end
-
-      user
+    def set_client(client)
+      @memory.set("client-#{client[:id]}", client)
     end
 
-    def time_after_an_hour(time)
-      Time.now + 60 * 60
+    def get_client(client_id)
+      @memory.get("client-#{client_id}")
+    end
+
+    def timestamp_for(time)
+     time.to_i
     end
   end
 end

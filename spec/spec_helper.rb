@@ -6,20 +6,10 @@ RSpec.configure do |config|
   config.include Rack::Test::Methods
 end
 
-def time_after_an_hour(time)
-  time + 60 * 60
+def at_time(time, &block)
+  Timecop.travel(Time.parse(time), &block)
 end
 
-class ExternalMemory
-  def initialize
-    @memory = Hash.new
-  end
-
-  def get(attribute)
-    @memory[attribute.to_s]
-  end
-
-  def set(attribute, value)
-    @memory[attribute.to_s] = value
-  end
+def timestamp_for(time)
+  Time.parse(time).to_i
 end
