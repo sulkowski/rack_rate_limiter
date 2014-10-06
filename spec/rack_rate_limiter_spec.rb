@@ -163,10 +163,9 @@ describe Rack::RateLimiter do
       Timecop.freeze(current_time)
       get '/', { 'API_TOKEN' => 'ighVrvNmkLvWmjlFUZHzYQ' }
       Timecop.return
-      expect(external_memory.get('rate_limit')).to eq(30)
-      expect(external_memory.get('users')['ighVrvNmkLvWmjlFUZHzYQ'][:remaining_requests]).to eq(29)
-      expect(external_memory.get('users')['ighVrvNmkLvWmjlFUZHzYQ'][:reset_time]).to eq(time_after_an_hour(current_time).to_i)
-      expect(external_memory.get('customization_block')).to eq(rake_limiter_customization_block)
+      expect(external_memory.get("user-ighVrvNmkLvWmjlFUZHzYQ")[:id]).to eq('ighVrvNmkLvWmjlFUZHzYQ')
+      expect(external_memory.get("user-ighVrvNmkLvWmjlFUZHzYQ")[:remaining_requests]).to eq(29)
+      expect(external_memory.get('user-ighVrvNmkLvWmjlFUZHzYQ')[:reset_time]).to eq(time_after_an_hour(current_time).to_i)
     end
   end
 end
