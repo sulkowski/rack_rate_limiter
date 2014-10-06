@@ -42,7 +42,7 @@ module Rack
 
       [status, headers, response]
     rescue TooManyRequests
-      [403, { 'Content-Type' => 'text/plain' }, ['Too many requests']]
+      [429, { 'Content-Type' => 'text/plain' }, ['Too many requests']]
     end
 
     private

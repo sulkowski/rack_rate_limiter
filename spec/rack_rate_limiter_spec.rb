@@ -50,12 +50,12 @@ describe Rack::RateLimiter do
       expect(last_response.header['X-RateLimit-Remaining']).to eq(40)
     end
 
-    it 'returns 403 `X-RateLimit-Remaining` after exceeding the limit of requests' do
+    it 'returns 429 `X-RateLimit-Remaining` after exceeding the limit of requests' do
       60.times { get '/' }
       expect(last_response.header['X-RateLimit-Remaining']).to eq(0)
 
       get '/'
-      expect(last_response.status).to eq(403)
+      expect(last_response.status).to eq(429)
       expect(last_response.body).to eq('Too many requests')
     end
   end
